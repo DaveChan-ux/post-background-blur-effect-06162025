@@ -10,35 +10,83 @@ import UIKit
 
 struct ContentView: View {
     @State private var blurMaterial: Material = .regularMaterial
+    @State private var selectedImageType: ImageType = .light
+    @State private var currentLuminance: Double = 0.0
+    @State private var currentBlurMaterialName: String = "Regular Material"
+
+    enum ImageType: String, CaseIterable {
+        case light = "light"
+        case medium = "coffee"
+        case dark = "dark"
+
+        var displayName: String {
+            switch self {
+            case .light: return "light"
+            case .medium: return "medium"
+            case .dark: return "dark"
+            }
+        }
+    }
 
     var body: some View {
-        ZStack {
-            // Bottom layer: image fills entire container (no blur)
-            Image("light")
-                .resizable()
-                .scaledToFill()
-                .clipped()
-                .onAppear {
-                    // Analyze the image brightness and set appropriate blur material
-                    if let uiImage = UIImage(named: "light") {
-                        blurMaterial = ImageBrightnessAnalyzer.getBlurMaterial(for: uiImage)
+        VStack(spacing: 20) {
+            ZStack {
+                // Bottom layer: image fills entire container (no blur)
+                Image(selectedImageType.rawValue)
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
+                    .onAppear {
+                        updateBlurMaterial()
                     }
+                    .onChange(of: selectedImageType) { _, _ in
+                        updateBlurMaterial()
+                    }
+
+                // Middle layer: empty frame with dynamically selected iOS Materials Blur
+                Rectangle()
+                    .fill(blurMaterial)
+
+                // Top layer: image fit to height of container (no blur)
+                Image(selectedImageType.rawValue)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 300)
+                    .cornerRadius(0)
+            }
+            .frame(width: 300, height: 300)
+            .cornerRadius(16)
+
+            // Segmented control for image selection
+            Picker("Image Type", selection: $selectedImageType) {
+                ForEach(ImageType.allCases, id: \.self) { imageType in
+                    Text(imageType.displayName)
+                        .tag(imageType)
                 }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .padding(.horizontal)
 
-            // Middle layer: empty frame with dynamically selected iOS Materials Blur
-            Rectangle()
-                .fill(blurMaterial)
-
-            // Top layer: image fit to height of container (no blur)
-            Image("light")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 300)
-                .cornerRadius(0)
+            // Display blur material and luminance information
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Blur setting = \(currentBlurMaterialName)")
+                    .font(.body)
+                Text("Luminance = \(String(format: "%.3f", currentLuminance))")
+                    .font(.body)
+            }
+            .padding(.horizontal)
         }
-        .frame(width: 300, height: 300)
-        .cornerRadius(16)
         .padding()
+    }
+
+    private func updateBlurMaterial() {
+        // Analyze the image brightness and set appropriate blur material
+        if let uiImage = UIImage(named: selectedImageType.rawValue) {
+            let analysisResult = ImageBrightnessAnalyzer.getBlurMaterialWithBrightnessAndName(for: uiImage)
+            blurMaterial = analysisResult.material
+            currentLuminance = analysisResult.brightness
+            currentBlurMaterialName = analysisResult.materialName
+        }
     }
 }
 
@@ -51,6 +99,24 @@ struct ImageBrightnessAnalyzer {
     static func getBlurMaterial(for image: UIImage) -> Material {
         let brightness = calculateImageBrightness(image: image)
         return selectBlurMaterial(for: brightness)
+    }
+
+    /// Analyzes image brightness and returns both blur material and brightness value
+    /// - Parameter image: UIImage to analyze
+    /// - Returns: Tuple containing the material and brightness value
+    static func getBlurMaterialWithBrightness(for image: UIImage) -> (material: Material, brightness: Double) {
+        let brightness = calculateImageBrightness(image: image)
+        let material = selectBlurMaterial(for: brightness)
+        return (material: material, brightness: brightness)
+    }
+
+    /// Analyzes image brightness and returns blur material, brightness value, and material name
+    /// - Parameter image: UIImage to analyze
+    /// - Returns: Tuple containing the material, brightness value, and material name
+    static func getBlurMaterialWithBrightnessAndName(for image: UIImage) -> (material: Material, brightness: Double, materialName: String) {
+        let brightness = calculateImageBrightness(image: image)
+        let materialInfo = selectBlurMaterialWithName(for: brightness)
+        return (material: materialInfo.material, brightness: brightness, materialName: materialInfo.name)
     }
 
     /// Calculates the average brightness of an image
@@ -116,8 +182,8 @@ struct ImageBrightnessAnalyzer {
     private static func selectBlurMaterial(for brightness: Double) -> Material {
         switch brightness {
         case 0.0..<0.3:
-            // Dark background - use regular material
-            return .regularMaterial
+            // Dark background - use ultra thin material
+            return .ultraThinMaterial
         case 0.3..<0.7:
             // Medium background - use regular material
             return .regularMaterial
@@ -127,6 +193,26 @@ struct ImageBrightnessAnalyzer {
         default:
             // Fallback to regular material
             return .regularMaterial
+        }
+    }
+
+    /// Selects appropriate blur material and name based on brightness value
+    /// - Parameter brightness: Brightness value between 0.0 and 1.0
+    /// - Returns: Tuple containing material and its name
+    private static func selectBlurMaterialWithName(for brightness: Double) -> (material: Material, name: String) {
+        switch brightness {
+        case 0.0..<0.3:
+            // Dark background - use ultra thin material
+            return (.ultraThinMaterial, "Ultra Thin Material")
+        case 0.3..<0.7:
+            // Medium background - use regular material
+            return (.regularMaterial, "Regular Material")
+        case 0.7...1.0:
+            // Light background - use thin material
+            return (.thinMaterial, "Thin Material")
+        default:
+            // Fallback to regular material
+            return (.regularMaterial, "Regular Material")
         }
     }
 
