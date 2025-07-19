@@ -29,7 +29,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(alignment: .leading, spacing: 20) {
             ZStack {
                 // Bottom layer: image fills entire container (no blur)
                 Image(selectedImageType.rawValue)
@@ -54,7 +54,8 @@ struct ContentView: View {
                     .frame(height: 300)
                     .cornerRadius(0)
             }
-            .frame(width: 300, height: 300)
+            .frame(maxWidth: .infinity)
+            .frame(height: 300)
             .cornerRadius(16)
 
             // Segmented control for image selection
@@ -65,7 +66,7 @@ struct ContentView: View {
                 }
             }
             .pickerStyle(SegmentedPickerStyle())
-            .padding(.horizontal)
+            .frame(maxWidth: .infinity)
 
             // Display blur material and luminance information
             VStack(alignment: .leading, spacing: 8) {
@@ -74,7 +75,6 @@ struct ContentView: View {
                 Text("Luminance = \(String(format: "%.3f", currentLuminance))")
                     .font(.body)
             }
-            .padding(.horizontal)
         }
         .padding()
     }
